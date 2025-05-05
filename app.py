@@ -95,4 +95,4 @@ def show_numbers(_):
     return [html.Li(str(num)) for num in numbers]
 
 if __name__ == "__main__":
-    app.run_server(debug=True, host="0.0.0.0")
+    app.run(debug=True, host="0.0.0.0")
