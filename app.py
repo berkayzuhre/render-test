@@ -76,14 +76,20 @@ app.layout = html.Div([
     Output("numbers-list", "children"),
     Input("submit-btn", "n_clicks"),
     State("num-input", "value"),
-    prevent_initial_call=True
+    prevent_initial_call=False  # needed for startup
 )
 def handle_submission(n_clicks, value):
-    if value is not None:
-        insert_number(value)
+    # No message on first load
+    msg = ""
+    if n_clicks:
+        if value is not None:
+            insert_number(value)
+            msg = f"Stored {value}"
+        else:
+            msg = "Please enter a value."
     numbers = get_numbers()
     nums_list = [html.Li(str(num)) for num in numbers]
-    return f"Stored {value}", nums_list
+    return msg, nums_list
 
 # Show initial numbers at startup too
 @app.callback(
