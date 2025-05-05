@@ -1,16 +1,14 @@
-import dash
-from dash import dcc, html, Input, Output, State
+from dash import Dash, dcc, html, Input, Output, State
 import psycopg2
 import os
 
-# Read database credentials from environment variables for security
+# Read DB credentials from environment variables
 DB_HOST     = os.environ.get("DB_HOST")
 DB_PORT     = os.environ.get("DB_PORT", 5432)
 DB_NAME     = os.environ.get("DB_NAME")
 DB_USER     = os.environ.get("DB_USER")
 DB_PASSWORD = os.environ.get("DB_PASSWORD")
 
-# Try to connect and create table if not exists
 def create_db():
     conn = psycopg2.connect(
         host=DB_HOST,
@@ -26,8 +24,6 @@ def create_db():
     conn.commit()
     cur.close()
     conn.close()
-
-create_db()  # Ensure table exists
 
 def insert_number(value):
     conn = psycopg2.connect(
@@ -58,8 +54,11 @@ def get_numbers():
     conn.close()
     return numbers
 
-app = dash.Dash(__name__)
-server = app.server  # For Render compatibility
+# Create the database table if needed
+create_db()
+
+app = Dash(__name__)
+server = app.server
 
 app.layout = html.Div([
     html.H2("Enter a number:"),
@@ -76,29 +75,16 @@ app.layout = html.Div([
     Output("numbers-list", "children"),
     Input("submit-btn", "n_clicks"),
     State("num-input", "value"),
-    prevent_initial_call=False  # needed for startup
+    prevent_initial_call=False  # So the list loads at startup
 )
 def handle_submission(n_clicks, value):
-    # No message on first load
     msg = ""
-    if n_clicks:
-        if value is not None:
-            insert_number(value)
-            msg = f"Stored {value}"
-        else:
-            msg = "Please enter a value."
+    if n_clicks and value is not None:
+        insert_number(value)
+        msg = f"Stored {value}"
     numbers = get_numbers()
     nums_list = [html.Li(str(num)) for num in numbers]
     return msg, nums_list
-
-# Show initial numbers at startup too
-@app.callback(
-    Output("numbers-list", "children"),
-    Input("num-input", "id")
-)
-def show_numbers(_):
-    numbers = get_numbers()
-    return [html.Li(str(num)) for num in numbers]
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0")
