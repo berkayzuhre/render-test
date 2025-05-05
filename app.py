@@ -1,0 +1,98 @@
+import dash
+from dash import dcc, html, Input, Output, State
+import psycopg2
+import os
+
+# Read database credentials from environment variables for security
+DB_HOST     = os.environ.get("DB_HOST")
+DB_PORT     = os.environ.get("DB_PORT", 5432)
+DB_NAME     = os.environ.get("DB_NAME")
+DB_USER     = os.environ.get("DB_USER")
+DB_PASSWORD = os.environ.get("DB_PASSWORD")
+
+# Try to connect and create table if not exists
+def create_db():
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
+    )
+    cur = conn.cursor()
+    cur.execute(
+        "CREATE TABLE IF NOT EXISTS numbers (id SERIAL PRIMARY KEY, value INTEGER)"
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+create_db()  # Ensure table exists
+
+def insert_number(value):
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
+    )
+    cur = conn.cursor()
+    cur.execute("INSERT INTO numbers (value) VALUES (%s)", (value,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def get_numbers():
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
+    )
+    cur = conn.cursor()
+    cur.execute("SELECT value FROM numbers ORDER BY id ASC")
+    numbers = [row[0] for row in cur.fetchall()]
+    cur.close()
+    conn.close()
+    return numbers
+
+app = dash.Dash(__name__)
+server = app.server  # For Render compatibility
+
+app.layout = html.Div([
+    html.H2("Enter a number:"),
+    dcc.Input(id="num-input", type="number"),
+    html.Button("Submit", id="submit-btn"),
+    html.Div(id="result"),
+    html.Hr(),
+    html.H4("Previously entered numbers:"),
+    html.Ul(id="numbers-list")
+])
+
+@app.callback(
+    Output("result", "children"),
+    Output("numbers-list", "children"),
+    Input("submit-btn", "n_clicks"),
+    State("num-input", "value"),
+    prevent_initial_call=True
+)
+def handle_submission(n_clicks, value):
+    if value is not None:
+        insert_number(value)
+    numbers = get_numbers()
+    nums_list = [html.Li(str(num)) for num in numbers]
+    return f"Stored {value}", nums_list
+
+# Show initial numbers at startup too
+@app.callback(
+    Output("numbers-list", "children"),
+    Input("num-input", "id")
+)
+def show_numbers(_):
+    numbers = get_numbers()
+    return [html.Li(str(num)) for num in numbers]
+
+if __name__ == "__main__":
+    app.run_server(debug=True, host="0.0.0.0")
